@@ -11,6 +11,8 @@ import pandas as pd
 import matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 import matplotlib.pyplot as plt
+import re
+from PyQt5.QtCore import QTimer
 
 matplotlib.use("Qt5Agg")
 
@@ -49,6 +51,8 @@ class SinaStatsGUI:
     date1 = "2021-04-27"
     date2 = date1
     ls = []
+    code_list = {}
+    name_list = []
 
     def __init__(self):
         self.graphic_scene = QGraphicsScene()  # 创建一个QGraphicsScene
@@ -59,8 +63,24 @@ class SinaStatsGUI:
         self.ui.genTable.clicked.connect(self.gen_table)
         self.ui.genGo.clicked.connect(self.gen_go)
         self.ui.genGraph.clicked.connect(self.gen_graph)
+        self.ui.buttonpost.clicked.connect(self.gen_name)
+        self.ui.comboBox.currentIndexChanged.connect(self.handle_selection_change)
+        self.ui.comboBox.addItem('平安银行')
+        self.timer = QTimer()  # 初始化定时器
+        self.timer.timeout.connect(self.gen_graph)
+        self.ui.pushButton.clicked.connect(self.start)
+
+    def start(self):
+        self.timer.start(2 * 1000)
+
+    def handle_selection_change(self):
+        method = self.ui.comboBox.currentText()
+        self.code = self.code_list.get(method, 'sz000001')
+        self.ui.code.clear()
+        self.ui.code.setText(self.code)
 
     def get_data(self):
+        self.ls = []
         self.code = self.ui.code.text()
         self.date1 = self.ui.date1.date().toString('yyyy-MM-dd')
         self.date2 = self.ui.date2.date().toString('yyyy-MM-dd')
@@ -95,6 +115,7 @@ class SinaStatsGUI:
         gv_visual = MyFigureCanvas()
         gv_visual.axes.cla()
         gv_visual.axes.plot(x, y)
+        gv_visual.axes.get_xaxis().set_visible(False)
         gv_visual.axes.set_title('Graph')
         self.graphic_scene.addWidget(gv_visual)
         self.ui.graphicsView.setScene(self.graphic_scene)
@@ -152,6 +173,33 @@ class SinaStatsGUI:
                         self.ls.append(tp)
                     page += 1
         global_ms.text_print.emit(self.progress("Finish!!!"))
+
+    def gen_name(self):
+        post_url = r'https://hq.gucheng.com/gpdmylb.html'
+        # 进行UA伪装
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, '
+                          'like Gecko) '
+                          'Chrome/94.0.4606.81 Safari/537.36 '
+        }
+        # 请求发送
+        response = requests.get(url=post_url, headers=headers)
+        response.encoding = response.apparent_encoding
+        tmp = response.text
+        soup = BeautifulSoup(tmp, 'lxml').find_all('section')
+        lqm = soup[0].find_all('a')
+        self.code_list = {}
+        self.name_list = []
+        for i in lqm:
+            line = str(i['href'])
+            matchobj = re.match(r'https://hq.gucheng.com/(.*)/', line, re.M | re.I)
+            if matchobj:
+                self.code_list[i.text] = matchobj.group(1).lower()
+                self.name_list.append(i.text)
+            else:
+                print('No Match!!!')
+        self.ui.comboBox.clear()
+        self.ui.comboBox.addItems(self.name_list)
 
 
 if __name__ == "__main__":

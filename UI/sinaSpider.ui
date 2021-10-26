@@ -232,7 +232,7 @@
       </spacer>
      </item>
      <item>
-      <widget class="QPushButton" name="pushButton_2">
+      <widget class="QPushButton" name="buttonpost">
        <property name="text">
         <string>同步股票</string>
        </property>
