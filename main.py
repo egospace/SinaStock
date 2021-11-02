@@ -64,8 +64,13 @@ class SinaStatsGUI:
         self.ui.genGo.clicked.connect(self.gen_go)
         self.ui.genGraph.clicked.connect(self.gen_graph)
         self.ui.buttonpost.clicked.connect(self.gen_name)
+        self.code_list = {}
+        a = pd.read_csv('./code.csv')
+        for i in range(a.index.size):
+            self.code_list[a.iloc[i, 0]] = a.iloc[i, 1]
+            self.name_list.append(a.iloc[i, 0])
         self.ui.comboBox.currentIndexChanged.connect(self.handle_selection_change)
-        self.ui.comboBox.addItem('平安银行')
+        self.ui.comboBox.addItems(self.name_list)
         self.timer = QTimer()  # 初始化定时器
         self.timer.timeout.connect(self.gen_graph)
         self.ui.pushButton.clicked.connect(self.start)
@@ -175,7 +180,7 @@ class SinaStatsGUI:
         global_ms.text_print.emit(self.progress("Finish!!!"))
 
     def gen_name(self):
-        post_url = r'https://hq.gucheng.com/gpdmylb.html'
+        post_url = r'http://www.58188.com/vip/index.htm'
         # 进行UA伪装
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, '
@@ -186,18 +191,25 @@ class SinaStatsGUI:
         response = requests.get(url=post_url, headers=headers)
         response.encoding = response.apparent_encoding
         tmp = response.text
-        soup = BeautifulSoup(tmp, 'lxml').find_all('section')
-        lqm = soup[0].find_all('a')
+        soup = BeautifulSoup(tmp, 'lxml').find_all('table')
+        lqm = soup[5].find_all('a')
         self.code_list = {}
         self.name_list = []
+        sh = ['600', '601', '602', '900', '688']
+        sz = ['000', '200', '300', '002']
         for i in lqm:
             line = str(i['href'])
-            matchobj = re.match(r'https://hq.gucheng.com/(.*)/', line, re.M | re.I)
+            matchobj = re.match(r'/vip/html/(.*).html', line, re.M | re.I)
             if matchobj:
-                self.code_list[i.text] = matchobj.group(1).lower()
+                tmp_code = matchobj.group(1)[:3]
+                if tmp_code in sz:
+                    self.code_list[i.text] = 'sz' + matchobj.group(1)
+                elif tmp_code in sh:
+                    self.code_list[i.text] = 'sh' + matchobj.group(1)
                 self.name_list.append(i.text)
             else:
                 print('No Match!!!')
+        pd.DataFrame(self.code_list.values(), index=self.code_list.keys()).to_csv('./code.csv', encoding='utf_8_sig')
         self.ui.comboBox.clear()
         self.ui.comboBox.addItems(self.name_list)
 
